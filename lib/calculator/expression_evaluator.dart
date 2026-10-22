@@ -115,9 +115,21 @@ class _Parser {
           else if (next == '.' && !decimalSeen) { decimalSeen = true; index++; }
           else { break; }
         }
-        final number = source.substring(start, index);
-        if (number == '.') throw const ExpressionException('A decimal point needs digits.');
-        tokens.add(_Token(_TokenType.number, number));
+        if (source.substring(start, index) == '.') {
+          throw const ExpressionException('A decimal point needs digits.');
+        }
+        // Scientific notation such as 1e3, 2.5E-4 (only when digits follow).
+        if (index < source.length && (source[index] == 'e' || source[index] == 'E')) {
+          var lookahead = index + 1;
+          if (lookahead < source.length && (source[lookahead] == '+' || source[lookahead] == '-')) {
+            lookahead++;
+          }
+          if (lookahead < source.length && _isDigit(source[lookahead])) {
+            index = lookahead;
+            while (index < source.length && _isDigit(source[index])) { index++; }
+          }
+        }
+        tokens.add(_Token(_TokenType.number, source.substring(start, index)));
         continue;
       }
       if (_isLetter(char)) {
