@@ -1,5 +1,4 @@
 import 'package:flutter_advanced_calculator/calculator/expression_evaluator.dart';
-import 'package:flutter_advanced_calculator/calculator/expression_exception.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -22,6 +21,29 @@ void main() {
       expect(evaluator.evaluate('3^2^2'), 81);
       expect(evaluator.evaluate('-3 + 8'), 5);
       expect(evaluator.evaluate('2^-3'), closeTo(0.125, 1e-12));
+    });
+  });
+
+  group('extra syntax', () {
+    test('supports unary operators and precedence of unary minus', () {
+      expect(evaluator.evaluate('2*-3'), -6);
+      expect(evaluator.evaluate('-2^2'), -4);
+      expect(evaluator.evaluate('+5'), 5);
+    });
+    test('supports scientific notation and decimals', () {
+      expect(evaluator.evaluate('1e3'), 1000);
+      expect(evaluator.evaluate('1.5E-3'), closeTo(0.0015, 1e-15));
+      expect(evaluator.evaluate('0.1 + 0.2'), closeTo(0.3, 1e-12));
+      expect(evaluator.evaluate('1.5 + .5'), 2);
+    });
+    test('function and constant names are case-insensitive', () {
+      expect(evaluator.evaluate('SQRT(16)'), 4);
+      expect(evaluator.evaluate('PI'), closeTo(3.141592653589793, 1e-12));
+    });
+    test('rejects implicit multiplication, empty brackets and fractional roots of negatives', () {
+      for (final expression in ['2(3)', '()', 'sqrt', '(-8)^(1/3)', '1e']) {
+        expect(() => evaluator.evaluate(expression), throwsA(isA<ExpressionException>()), reason: expression);
+      }
     });
   });
 
