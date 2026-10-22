@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'calculator/calculation_record.dart';
 import 'calculator/expression_evaluator.dart';
-import 'calculator/expression_exception.dart';
+import 'calculator/result_formatter.dart';
 
 void main() => runApp(const CalculatorApp());
 
@@ -35,6 +35,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   final _evaluator = ExpressionEvaluator();
   final List<CalculationRecord> _history = [];
   String _display = '0';
+  double _lastResult = 0;
   String? _error;
 
   @override
@@ -51,12 +52,15 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       final selection = _controller.selection;
       final start = selection.isValid ? selection.start : text.length;
       final end = selection.isValid ? selection.end : text.length;
-      final prefix = text == '0' && value != '.' && value.length == 1 ? '' : text.substring(0, start);
-      final suffix = text == '0' && value != '.' && value.length == 1 ? '' : text.substring(end);
-      final next = '$prefix$value$suffix';
+      // A lone leading "0" is replaced by the next digit (0 + 5 -> 5), but
+      // operators and brackets are appended to it (0 + "+" -> 0+).
+      final replaceZero = text == '0' && RegExp(r'^\d+$').hasMatch(value);
+      final inserted = replaceZero ? value.replaceFirst(RegExp(r'^0+(?=\d)'), '') : value;
+      final prefix = replaceZero ? '' : text.substring(0, start);
+      final suffix = replaceZero ? '' : text.substring(end);
       _controller.value = TextEditingValue(
-        text: next,
-        selection: TextSelection.collapsed(offset: prefix.length + value.length),
+        text: '$prefix$inserted$suffix',
+        selection: TextSelection.collapsed(offset: prefix.length + inserted.length),
       );
     });
   }
@@ -84,7 +88,8 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     try {
       final result = _evaluator.evaluate(expression);
       setState(() {
-        _display = _formatResult(result);
+        _display = ResultFormatter.format(result);
+        _lastResult = result;
         _error = null;
         _history.insert(0, CalculationRecord(expression: expression, result: result));
         if (_history.length > 30) _history.removeLast();
@@ -96,15 +101,11 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     }
   }
 
-  String _formatResult(double value) {
-    if (value == value.roundToDouble() && value.abs() < 1e15) return value.toInt().toString();
-    return value.toStringAsPrecision(10).replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
-  }
-
   void _useHistory(CalculationRecord record) {
     setState(() {
       _controller.value = TextEditingValue(text: record.expression, selection: TextSelection.collapsed(offset: record.expression.length));
-      _display = _formatResult(record.result);
+      _display = ResultFormatter.format(record.result);
+      _lastResult = record.result;
       _error = null;
     });
   }
@@ -140,7 +141,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       padding: const EdgeInsets.all(16),
       child: Column(children: [
         Card(elevation: 0, color: Colors.white, child: Padding(padding: const EdgeInsets.all(18), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          TextField(controller: _controller, focusNode: _focusNode, keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true), textInputAction: TextInputAction.done, onSubmitted: (_) => _calculate(), decoration: const InputDecoration(labelText: 'Expression', hintText: 'Try: sqrt(81) + 2^3', border: InputBorder.none), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500)),
+          TextField(controller: _controller, focusNode: _focusNode, keyboardType: TextInputType.text, textInputAction: TextInputAction.done, onSubmitted: (_) => _calculate(), decoration: const InputDecoration(labelText: 'Expression', hintText: 'Try: sqrt(81) + 2^3', border: InputBorder.none), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500)),
           const Divider(), const Text('RESULT', style: TextStyle(fontSize: 11, letterSpacing: 1.4, color: Colors.black54)), const SizedBox(height: 5),
           SelectableText(_display, key: const Key('calculator-result'), style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w700)),
           if (_error != null) ...[const SizedBox(height: 8), Text(_error!, key: const Key('calculator-error'), style: const TextStyle(color: Colors.red, fontSize: 13))],
@@ -168,7 +169,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       case '⌫': _backspace(); break;
       case '=': _calculate(); break;
       case '±': _insert('-'); break;
-      case 'Ans': _insert(_display); break;
+      case 'Ans': _insert(ResultFormatter.toInputString(_lastResult)); break;
       default: _insert(key); break;
     }
   }
@@ -177,7 +178,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     if (_history.isEmpty) return const Center(child: Padding(padding: EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.history, size: 38, color: Colors.black38), SizedBox(height: 8), Text('Your calculations will appear here.')])));
     return ListView.separated(padding: const EdgeInsets.all(12), itemCount: _history.length, separatorBuilder: (_, __) => const Divider(height: 1), itemBuilder: (context, index) {
       final record = _history[index];
-      return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), title: Text(record.expression, maxLines: 1, overflow: TextOverflow.ellipsis), subtitle: Text('= ${_formatResult(record.result)}', style: const TextStyle(fontWeight: FontWeight.w700)), trailing: const Icon(Icons.north_west, size: 18), onTap: () => _useHistory(record));
+      return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), title: Text(record.expression, maxLines: 1, overflow: TextOverflow.ellipsis), subtitle: Text('= ${ResultFormatter.format(record.result)}', style: const TextStyle(fontWeight: FontWeight.w700)), trailing: const Icon(Icons.north_west, size: 18), onTap: () => _useHistory(record));
     });
   }
 }
