@@ -6,11 +6,12 @@ An advanced, responsive scientific calculator built with **Dart** and **Flutter*
 
 - Arithmetic: addition (`+`), subtraction (`-`), multiplication (`*`), division (`/`) and remainder (`%`).
 - Powers (`^`), parentheses, negative values and standard operator precedence.
-- Constants: `pi` and `e`.
+- Constants: `pi` and `e`; scientific notation such as `1.5e-3`.
 - Functions: `sqrt`, `abs`, `sin`, `cos`, `tan`, `log` (base 10), `ln` and `exp`.
 - Trigonometric functions use radians.
 - Calculation history for the current session; tap an entry to reuse its expression.
-- Clear and backspace controls, result reuse (`Ans`), responsive layout and error messages.
+- Clear and backspace controls, result reuse (`Ans`, full precision), copy-to-clipboard, responsive layout and error messages.
+- Very large/small results are shown in exponent notation (e.g. `1e+20`); floating-point noise such as `sin(pi)` is shown as `0`.
 - A hand-written recursive-descent parser; it does not evaluate user input as executable code.
 
 ## Requirements
@@ -33,6 +34,12 @@ From this project directory:
 ```bash
 flutter pub get
 flutter run
+```
+
+If the project has no platform folders yet (`android/`, `linux/`, `web/` ...), generate them once first (this does not touch `lib/` or `test/`):
+
+```bash
+flutter create --project-name flutter_advanced_calculator --platforms=android,linux,web .
 ```
 
 Choose a connected device or running emulator when prompted. To run on a desktop platform, enable that platform in your Flutter installation and use `flutter run -d linux`, `flutter run -d windows`, or `flutter run -d macos` as appropriate.
@@ -72,10 +79,17 @@ flutter_advanced_calculator/
 ├── lib/
 │   ├── calculator/
 │   │   ├── calculation_record.dart
-│   │   └── expression_evaluator.dart
+│   │   ├── constants.dart
+│   │   ├── expression_evaluator.dart
+│   │   ├── expression_exception.dart
+│   │   ├── input_validator.dart
+│   │   ├── mathematical_operations.dart
+│   │   ├── result_formatter.dart
+│   │   └── scientific_functions.dart
 │   └── main.dart
 ├── test/
 │   ├── expression_evaluator_test.dart
+│   ├── result_formatter_test.dart
 │   └── widget_test.dart
 ├── analysis_options.yaml
 ├── pubspec.yaml
@@ -86,6 +100,7 @@ flutter_advanced_calculator/
 
 - `ExpressionEvaluator` tokenizes and parses an expression using separate grammar levels. That makes operator precedence explicit and avoids unsafe dynamic evaluation.
 - `ExpressionException` represents understandable user-input errors, such as division by zero.
+- `ResultFormatter` turns numbers into display text and into full-precision text for `Ans`.
 - `CalculationRecord` keeps an expression together with its numeric result.
 - `CalculatorScreen` is a stateful widget because the expression, displayed result, error and history change during use.
 - The tests cover arithmetic, precedence, scientific functions, invalid inputs and basic widget behaviour.
@@ -96,7 +111,3 @@ flutter_advanced_calculator/
 - Trigonometric functions use radians only.
 - There is no implicit multiplication, variables, equation solving, or persistent history storage.
 - `%` means remainder, not a percentage suffix.
-
-## Suggested Git workflow
-
-See `PUSH_STAGES.md` for an ordered commit plan and suggested messages.
